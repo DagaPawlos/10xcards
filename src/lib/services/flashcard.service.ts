@@ -199,4 +199,43 @@ export class FlashcardService {
       updated_at: flashcard.updated_at,
     };
   }
+
+  /**
+   * Deletes a flashcard by its ID.
+   * Row Level Security (RLS) ensures the user can only delete their own flashcards.
+   * @throws Error if flashcard is not found or other database error occurs
+   */
+  async deleteFlashcard(id: number): Promise<void> {
+    try {
+      // First check if the flashcard exists
+      const { data: existingFlashcard, error: checkError } = await this.supabase
+        .from("flashcards")
+        .select("id")
+        .eq("id", id)
+        .single();
+
+      if (checkError || !existingFlashcard) {
+        throw new Error("Flashcard not found");
+      }
+
+      // If flashcard exists, proceed with deletion
+      const { error: deleteError } = await this.supabase.from("flashcards").delete().eq("id", id);
+
+      if (deleteError) {
+        console.error("Error deleting flashcard:", {
+          error: deleteError,
+          operation: "delete_flashcard",
+          flashcard_id: id,
+        });
+        throw deleteError;
+      }
+    } catch (error) {
+      console.error("Error in deleteFlashcard:", {
+        error,
+        operation: "delete_flashcard",
+        flashcard_id: id,
+      });
+      throw error;
+    }
+  }
 }

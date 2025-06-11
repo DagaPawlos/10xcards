@@ -68,3 +68,66 @@ export const GET: APIRoute = async ({ params, locals }): Promise<Response> => {
     );
   }
 };
+
+export const DELETE: APIRoute = async ({ params, locals }): Promise<Response> => {
+  try {
+    // Validate the ID parameter
+    const validationResult = paramsSchema.safeParse(params);
+    if (!validationResult.success) {
+      return new Response(
+        JSON.stringify({
+          error: "Invalid flashcard ID",
+          details: validationResult.error.errors,
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const flashcardService = new FlashcardService(locals.supabase);
+    await flashcardService.deleteFlashcard(validationResult.data.id);
+
+    return new Response(
+      JSON.stringify({
+        message: "Flashcard successfully deleted",
+        id: validationResult.data.id,
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message === "Flashcard not found") {
+      return new Response(
+        JSON.stringify({
+          error: "Flashcard not found",
+          message: "The requested flashcard does not exist or you don't have access to it",
+        }),
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    console.error("Error processing flashcard deletion:", {
+      error,
+      params,
+      operation: "delete_flashcard",
+    });
+
+    return new Response(
+      JSON.stringify({
+        error: "Internal server error",
+        message: "Failed to delete flashcard",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+};
