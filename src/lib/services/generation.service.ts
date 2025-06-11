@@ -1,7 +1,22 @@
 import crypto from "crypto";
-import type { FlashcardProposalDto, GenerationCreateResponseDto } from "../../types";
+import type {
+  FlashcardProposalDto,
+  GenerationCreateResponseDto,
+  GenerationDetailDto,
+  FlashcardDto,
+  Generation,
+  Flashcard,
+  GenerationsListResponseDto,
+} from "../../types";
 import type { SupabaseClient } from "../../db/supabase.client";
 import { DEFAULT_USER_ID } from "../../db/supabase.client";
+
+interface ListGenerationsParams {
+  page: number;
+  limit: number;
+  sort: "created_at" | "updated_at";
+  order: "asc" | "desc";
+}
 
 export class GenerationService {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -95,5 +110,133 @@ export class GenerationService {
       source_text_hash: data.sourceTextHash,
       source_text_length: data.sourceTextLength,
     });
+  }
+
+  /**
+   * Retrieves a generation by its ID along with associated flashcards.
+   * Row Level Security (RLS) ensures the user can only access their own generations.
+   * @param id The ID of the generation to retrieve
+   * @returns The generation details with flashcards or null if not found
+   * @throws Error if there's a database error
+   */
+  async getGenerationById(id: number): Promise<GenerationDetailDto | null> {
+    try {
+      const { data: generation, error } = await this.supabase
+        .from("generations")
+        .select(
+          `
+          *,
+          flashcards (*)
+        `
+        )
+        .eq("id", id)
+        .single();
+
+      if (error) {
+        if (error.code === "PGRST116") {
+          return null;
+        }
+        console.error("Error fetching generation:", {
+          error,
+          operation: "get_generation_by_id",
+          generation_id: id,
+        });
+        throw error;
+      }
+
+      if (!generation) {
+        return null;
+      }
+
+      return this.mapToDto(generation);
+    } catch (error) {
+      // Log error details for debugging
+      console.error("Error in getGenerationById:", {
+        error,
+        operation: "get_generation_by_id",
+        generation_id: id,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Maps a database generation record to the DTO format.
+   * @private
+   */
+  private mapToDto(generation: Generation & { flashcards: Flashcard[] }): GenerationDetailDto {
+    return {
+      id: generation.id,
+      user_id: generation.user_id,
+      model: generation.model,
+      generated_count: generation.generated_count,
+      accepted_unedited_count: generation.accepted_unedited_count,
+      accepted_edited_count: generation.accepted_edited_count,
+      source_text_hash: generation.source_text_hash,
+      source_text_length: generation.source_text_length,
+      generation_duration: generation.generation_duration,
+      created_at: generation.created_at,
+      updated_at: generation.updated_at,
+      flashcards: generation.flashcards?.map((flashcard) => this.mapFlashcardToDto(flashcard)),
+    };
+  }
+
+  /**
+   * Maps a database flashcard record to the DTO format.
+   * @private
+   */
+  private mapFlashcardToDto(flashcard: Flashcard): FlashcardDto {
+    return {
+      id: flashcard.id,
+      front: flashcard.front,
+      back: flashcard.back,
+      source: flashcard.source,
+      generation_id: flashcard.generation_id,
+      created_at: flashcard.created_at,
+      updated_at: flashcard.updated_at,
+    };
+  }
+
+  async getGenerations(params: ListGenerationsParams): Promise<GenerationsListResponseDto> {
+    // Calculate offset for pagination
+    const offset = params.limit * (params.page - 1);
+
+    // Get total count
+    const { count, error: countError } = await this.supabase
+      .from("generations")
+      .select("*", { count: "exact", head: true });
+
+    if (countError) {
+      console.error("Error counting generations:", {
+        error: countError,
+        operation: "count_generations",
+      });
+      throw countError;
+    }
+
+    // Get paginated data
+    const { data, error: dataError } = await this.supabase
+      .from("generations")
+      .select("*")
+      .order(params.sort, { ascending: params.order === "asc" })
+      .range(offset, offset + params.limit - 1);
+
+    if (dataError) {
+      console.error("Error fetching generations:", {
+        error: dataError,
+        params,
+        operation: "get_generations",
+      });
+      throw dataError;
+    }
+
+    return {
+      data: data || [],
+      pagination: {
+        page: params.page,
+        limit: params.limit,
+        total: count || 0,
+      },
+    };
   }
 }

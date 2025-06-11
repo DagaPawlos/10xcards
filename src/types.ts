@@ -116,3 +116,12 @@ export type GenerationErrorLogDto = Pick<
   GenerationErrorLog,
   "id" | "error_code" | "error_message" | "model" | "source_text_hash" | "source_text_length" | "created_at" | "user_id"
 >;
+
+// ----------------------------------------------------------------------------------------------
+// 11. Generations List Response DTO
+//    Provides a paginated list of generations (GET /generations)
+// ----------------------------------------------------------------------------------------------
+export interface GenerationsListResponseDto {
+  data: Generation[];
+  pagination: PaginationDto;
+}

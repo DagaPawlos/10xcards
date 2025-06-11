@@ -409,3 +409,268 @@ Endpoint służy do pobierania szczegółowych informacji o pojedynczej fiszce n
    - Przegląd implementacji
    - Testy wydajnościowe
    - Testy bezpieczeństwa
+
+# API Endpoint Implementation Plan: GET /generations/{id}
+
+## 1. Przegląd punktu końcowego
+
+Endpoint służy do pobierania szczegółowych informacji o konkretnej generacji fiszek wraz z powiązanymi fiszkami. Endpoint wymaga uwierzytelnienia i zapewnia, że użytkownicy mogą uzyskać dostęp tylko do własnych generacji, wykorzystując Row Level Security (RLS) Supabase.
+
+## 2. Szczegóły żądania
+
+- **Metoda HTTP**: GET
+- **URL**: /generations/{id}
+- **Parametry**:
+  - **Wymagane**:
+    - `id`: Identyfikator generacji (parametr ścieżki)
+  - **Opcjonalne**: brak
+- **Headers**:
+  - `Authorization`: Bearer token (wymagany)
+
+## 3. Wykorzystywane typy
+
+- **GenerationDetailDto**: Model odpowiedzi
+
+  ```typescript
+  type GenerationDetailDto = Generation & {
+    flashcards?: FlashcardDto[];
+  };
+  ```
+
+- **Generation**: Model bazodanowy
+  ```typescript
+  interface Generation {
+    id: number;
+    user_id: string;
+    model: string;
+    generated_count: number;
+    accepted_unedited_count: number | null;
+    accepted_edited_count: number | null;
+    source_text_hash: string;
+    source_text_length: number;
+    generation_duration: number;
+    created_at: string;
+    updated_at: string;
+  }
+  ```
+
+## 4. Szczegóły odpowiedzi
+
+- **Sukces (HTTP 200)**:
+
+  ```json
+  {
+    "id": 123,
+    "model": "gpt-4",
+    "generated_count": 10,
+    "accepted_unedited_count": 5,
+    "accepted_edited_count": 2,
+    "source_text_hash": "abc123",
+    "source_text_length": 1500,
+    "generation_duration": 5000,
+    "created_at": "2024-03-21T12:00:00Z",
+    "updated_at": "2024-03-21T12:00:00Z",
+    "flashcards": [
+      {
+        "id": 1,
+        "front": "Question",
+        "back": "Answer",
+        "source": "ai-full",
+        "generation_id": 123,
+        "created_at": "2024-03-21T12:00:00Z",
+        "updated_at": "2024-03-21T12:00:00Z"
+      }
+    ]
+  }
+  ```
+
+- **Kody statusu**:
+  - 200: Pomyślne pobranie generacji
+  - 400: Nieprawidłowy format ID
+  - 401: Brak autoryzacji
+  - 404: Generacja nie znaleziona
+  - 500: Błąd serwera
+
+## 5. Przepływ danych
+
+1. Walidacja parametru ID w ścieżce URL
+2. Sprawdzenie uwierzytelnienia użytkownika
+3. Pobranie generacji z bazy danych przez GenerationService
+4. Pobranie powiązanych fiszek (jeśli istnieją)
+5. Mapowanie danych do DTO
+6. Zwrócenie odpowiedzi
+
+## 6. Względy bezpieczeństwa
+
+- **Uwierzytelnianie i autoryzacja**:
+
+  - Wykorzystanie Supabase Auth do weryfikacji tokena
+  - Row Level Security (RLS) w bazie danych do izolacji danych użytkowników
+  - Walidacja właściciela generacji
+
+- **Walidacja danych**:
+
+  - Sprawdzenie poprawności formatu ID
+  - Sanityzacja parametrów URL
+
+- **Ochrona przed nadużyciami**:
+  - Rate limiting na poziomie endpointu
+  - Logowanie nieudanych prób dostępu
+
+## 7. Obsługa błędów
+
+- **Błędy walidacji (400)**:
+
+  - Nieprawidłowy format ID (nie jest liczbą całkowitą)
+  - ID jest ujemne lub zero
+
+- **Błędy autoryzacji (401)**:
+
+  - Brak tokena uwierzytelniającego
+  - Nieprawidłowy token
+  - Token wygasł
+
+- **Błędy zasobu (404)**:
+
+  - Generacja o podanym ID nie istnieje
+  - Generacja należy do innego użytkownika
+
+- **Błędy serwera (500)**:
+  - Problemy z bazą danych
+  - Nieoczekiwane błędy serwera
+
+## 8. Rozważania dotyczące wydajności
+
+- **Optymalizacja zapytań**:
+
+  - Indeks na kolumnie id w tabeli generations
+  - Optymalne łączenie z tabelą flashcards
+  - Wykorzystanie RLS do filtrowania na poziomie bazy danych
+
+- **Paginacja fiszek**:
+  - Rozważyć paginację fiszek dla generacji z dużą liczbą wyników
+  - Domyślny limit liczby zwracanych fiszek
+
+## 9. Etapy wdrożenia
+
+1. Utworzenie GenerationService:
+
+   ```typescript
+   export class GenerationService {
+     constructor(private readonly supabase: SupabaseClient) {}
+
+     async getGenerationById(id: number): Promise<GenerationDetailDto | null> {
+       const { data: generation, error } = await this.supabase
+         .from("generations")
+         .select(
+           `
+           *,
+           flashcards (*)
+         `
+         )
+         .eq("id", id)
+         .single();
+
+       if (error) {
+         if (error.code === "PGRST116") {
+           return null;
+         }
+         throw error;
+       }
+
+       return this.mapToDto(generation);
+     }
+
+     private mapToDto(generation: any): GenerationDetailDto {
+       return {
+         ...generation,
+         flashcards: generation.flashcards?.map(this.mapFlashcardToDto),
+       };
+     }
+   }
+   ```
+
+2. Utworzenie pliku endpointu w `/src/pages/api/generations/[id].ts`:
+
+   ```typescript
+   // Schemat walidacji parametru ID
+   const paramsSchema = z.object({
+     id: z.coerce.number().positive("Generation ID must be a positive number").int("Generation ID must be an integer"),
+   });
+
+   export const GET: APIRoute = async ({ params, locals }): Promise<Response> => {
+     try {
+       // Walidacja parametru ID
+       const validationResult = paramsSchema.safeParse(params);
+       if (!validationResult.success) {
+         return new Response(
+           JSON.stringify({
+             error: "Invalid generation ID",
+             details: validationResult.error.errors,
+           }),
+           {
+             status: 400,
+             headers: { "Content-Type": "application/json" },
+           }
+         );
+       }
+
+       const generationService = new GenerationService(locals.supabase);
+       const generation = await generationService.getGenerationById(validationResult.data.id);
+
+       if (!generation) {
+         return new Response(
+           JSON.stringify({
+             error: "Generation not found",
+             message: "The requested generation does not exist or you don't have access to it",
+           }),
+           {
+             status: 404,
+             headers: { "Content-Type": "application/json" },
+           }
+         );
+       }
+
+       return new Response(JSON.stringify(generation), {
+         status: 200,
+         headers: { "Content-Type": "application/json" },
+       });
+     } catch (error) {
+       console.error("Error processing generation request:", {
+         error,
+         params,
+         operation: "get_generation",
+       });
+
+       return new Response(
+         JSON.stringify({
+           error: "Internal server error",
+           message: "Failed to fetch generation",
+         }),
+         {
+           status: 500,
+           headers: { "Content-Type": "application/json" },
+         }
+       );
+     }
+   };
+   ```
+
+3. Dodanie testów w `test-generation-view.sh`:
+
+   - Test pobierania istniejącej generacji
+   - Test pobierania nieistniejącej generacji
+   - Test nieprawidłowego formatu ID
+   - Test braku autoryzacji
+
+4. Aktualizacja dokumentacji API:
+
+   - Dodanie nowego endpointu do dokumentacji
+   - Przykłady użycia
+   - Opis kodów błędów
+
+5. Code review i testy:
+   - Przegląd implementacji
+   - Testy jednostkowe
+   - Testy integracyjne
+   - Testy wydajnościowe
