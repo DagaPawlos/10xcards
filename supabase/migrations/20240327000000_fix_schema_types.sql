@@ -5,22 +5,22 @@
 
 -- Modify generations table
 alter table generations
-    alter column id type int,
-    alter column generated_count type int4,
-    alter column accepted_unedited_count set not null,
-    alter column accepted_edited_count set not null,
-    alter column source_text_length type int4,
-    alter column generation_duration type int4;
+    alter column id set data type integer,
+    alter column generated_count set data type integer,
+    alter column accepted_unedited_count set data type integer,
+    alter column accepted_edited_count set data type integer,
+    alter column source_text_length set data type integer,
+    alter column generation_duration set data type integer;
 
 -- Modify flashcards table
 alter table flashcards
-    alter column id type int,
-    alter column generation_id type int;
+    alter column id set data type integer,
+    alter column generation_id set data type integer;
 
 -- Modify generation_error_logs table
 alter table generation_error_logs
-    alter column id type int,
-    alter column source_text_length type int4;
+    alter column id set data type integer,
+    alter column source_text_length set data type integer;
 
 -- Add comments
 comment on table generations is 'Table storing information about flashcard generation sessions';

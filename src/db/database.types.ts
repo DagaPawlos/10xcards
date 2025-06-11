@@ -96,8 +96,8 @@ export interface Database {
       };
       generations: {
         Row: {
-          accepted_edited_count: number;
-          accepted_unedited_count: number;
+          accepted_edited_count: number | null;
+          accepted_unedited_count: number | null;
           created_at: string;
           generated_count: number;
           generation_duration: number;
@@ -109,8 +109,8 @@ export interface Database {
           user_id: string;
         };
         Insert: {
-          accepted_edited_count: number;
-          accepted_unedited_count: number;
+          accepted_edited_count?: number | null;
+          accepted_unedited_count?: number | null;
           created_at?: string;
           generated_count: number;
           generation_duration: number;
@@ -122,8 +122,8 @@ export interface Database {
           user_id: string;
         };
         Update: {
-          accepted_edited_count?: number;
-          accepted_unedited_count?: number;
+          accepted_edited_count?: number | null;
+          accepted_unedited_count?: number | null;
           created_at?: string;
           generated_count?: number;
           generation_duration?: number;
