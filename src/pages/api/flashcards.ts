@@ -95,3 +95,48 @@ export const POST: APIRoute = async ({ request, locals }) => {
     );
   }
 };
+
+// Validation schema for query parameters
+const listFlashcardsSchema = z.object({
+  page: z.coerce.number().positive().default(1),
+  limit: z.coerce.number().min(1).max(100).default(10),
+  sort: z.enum(["created_at", "updated_at"]).optional(),
+  order: z.enum(["asc", "desc"]).default("desc"),
+  source: z.enum(["ai-full", "ai-edited", "manual"]).optional(),
+  generation_id: z.coerce.number().optional(),
+});
+
+export const GET: APIRoute = async ({ url, locals }) => {
+  try {
+    // Parse and validate query parameters
+    const searchParams = Object.fromEntries(url.searchParams.entries());
+    const validationResult = listFlashcardsSchema.safeParse(searchParams);
+
+    if (!validationResult.success) {
+      return new Response(
+        JSON.stringify({
+          error: "Invalid query parameters",
+          details: validationResult.error.errors,
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const flashcardService = new FlashcardService(locals.supabase);
+    const response = await flashcardService.getFlashcards(validationResult.data);
+
+    return new Response(JSON.stringify(response), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("Error processing flashcards request:", error);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+};
