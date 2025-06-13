@@ -8,7 +8,9 @@ import type {
   Flashcard,
   GenerationsListResponseDto,
 } from "../../types";
-import type { SupabaseClient } from "../../db/supabase.client";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { OpenRouterService } from "./openrouter.service";
+import { Logger } from "../logger";
 import { DEFAULT_USER_ID } from "../../db/supabase.client";
 
 interface ListGenerationsParams {
@@ -19,16 +21,31 @@ interface ListGenerationsParams {
 }
 
 export class GenerationService {
-  constructor(private readonly supabase: SupabaseClient) {}
+  private readonly logger: Logger;
+  private readonly openRouter: OpenRouterService;
+
+  constructor(
+    private readonly supabase: SupabaseClient,
+    openRouterConfig?: { apiKey: string }
+  ) {
+    this.logger = new Logger("GenerationService");
+
+    if (!openRouterConfig?.apiKey) {
+      throw new Error("OpenRouter API key is required");
+    }
+
+    this.openRouter = new OpenRouterService({
+      apiKey: openRouterConfig.apiKey,
+    });
+  }
 
   async generateFlashcards(sourceText: string): Promise<GenerationCreateResponseDto> {
     try {
       // 1. Calculate metadata
       const startTime = Date.now();
-
       const sourceTextHash = await this.calculateHash(sourceText);
 
-      // 2. Call AI service (mock for now)
+      // 2. Call AI service to generate flashcards
       const proposals = await this.callAIService(sourceText);
 
       // 3. Save generation metadata
@@ -54,20 +71,125 @@ export class GenerationService {
     }
   }
 
-  private async calculateHash(text: string): Promise<string> {
-    return crypto.createHash("md5").update(text).digest("hex");
+  private async callAIService(text: string): Promise<FlashcardProposalDto[]> {
+    try {
+      // Set up system message to instruct the model
+      this.openRouter.setSystemMessage(
+        "Jesteś pomocnym asystentem, który tworzy fiszki z podanego tekstu w języku polskim. " +
+          "Każda fiszka powinna mieć jasne pytanie na przodzie i zwięzłą odpowiedź na odwrocie. " +
+          "Skup się na kluczowych pojęciach i ważnych szczegółach. " +
+          "Upewnij się, że pytania są konkretne, a odpowiedzi precyzyjne. " +
+          "ZAWSZE zwracaj odpowiedź w formacie JSON z tablicą obiektów 'flashcards', gdzie każdy obiekt ma pola 'front' i 'back'."
+      );
+
+      // Set user message with the text to process
+      this.openRouter.setUserMessage(
+        "Utwórz fiszki z poniższego tekstu. " +
+          "Każda fiszka musi być obiektem JSON z polami 'front' (pytanie) i 'back' (odpowiedź). " +
+          "Wygeneruj od 3 do 10 wysokiej jakości fiszek. " +
+          "WAŻNE: Odpowiedź MUSI być w formacie JSON z tablicą 'flashcards'. " +
+          "Przykład prawidłowego formatu odpowiedzi:\n" +
+          '{\n  "flashcards": [\n    {"front": "Pytanie 1?", "back": "Odpowiedź 1"},\n    {"front": "Pytanie 2?", "back": "Odpowiedź 2"}\n  ]\n}\n\n' +
+          "Tekst do przetworzenia:\n\n" +
+          text
+      );
+
+      interface FlashcardResponse {
+        flashcards: {
+          front: string;
+          back: string;
+        }[];
+      }
+
+      // Configure response format for structured output
+      const response = await this.openRouter.getChatCompletion({
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "flashcards_generation",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                flashcards: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      front: { type: "string" },
+                      back: { type: "string" },
+                    },
+                    required: ["front", "back"],
+                  },
+                  minItems: 3,
+                  maxItems: 10,
+                },
+              },
+              required: ["flashcards"],
+            },
+          },
+        },
+      });
+
+      this.logger.info("Received response from OpenRouter", {
+        response: JSON.stringify(response),
+      });
+
+      // Transform the AI response into FlashcardProposalDto[]
+      if (typeof response === "string") {
+        try {
+          const parsedResponse = JSON.parse(response) as FlashcardResponse;
+          if (Array.isArray(parsedResponse.flashcards)) {
+            return parsedResponse.flashcards.map((card) => ({
+              front: card.front,
+              back: card.back,
+              source: "ai-full" as const,
+            }));
+          }
+          throw new Error("Response does not contain flashcards array");
+        } catch (parseError) {
+          this.logger.error(parseError as Error, {
+            operation: "parse_ai_response",
+            response: response,
+          });
+          throw new Error("Failed to parse AI response");
+        }
+      }
+
+      if (
+        response &&
+        typeof response === "object" &&
+        "flashcards" in response &&
+        Array.isArray((response as FlashcardResponse).flashcards)
+      ) {
+        const typedResponse = response as FlashcardResponse;
+        return typedResponse.flashcards.map((card) => ({
+          front: card.front,
+          back: card.back,
+          source: "ai-full" as const,
+        }));
+      }
+
+      this.logger.error(new Error("Invalid response format"), {
+        operation: "validate_ai_response",
+        response: JSON.stringify(response),
+      });
+      throw new Error("Invalid response format from AI service");
+    } catch (error) {
+      this.logger.error(error as Error, {
+        operation: "generate_flashcards",
+        textLength: text.length,
+      });
+      throw new Error("Failed to generate flashcards using AI service");
+    }
   }
 
-  private async callAIService(text: string): Promise<FlashcardProposalDto[]> {
-    // Mock implementation with artificial delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // Generate 3 mock flashcards based on text length
-    return Array.from({ length: 3 }, (_, i) => ({
-      front: `Mock Question ${i + 1} (text length: ${text.length})`,
-      back: `Mock Answer ${i + 1}`,
-      source: "ai-full" as const,
-    }));
+  private async calculateHash(text: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
   }
 
   private async saveGenerationMetadata(data: {
@@ -75,41 +197,52 @@ export class GenerationService {
     sourceTextHash: string;
     generatedCount: number;
     durationMs: number;
-  }): Promise<number> {
+  }) {
+    // Using DEFAULT_USER_ID from supabase.client.ts
     const { data: generation, error } = await this.supabase
       .from("generations")
       .insert({
         user_id: DEFAULT_USER_ID,
         source_text_hash: data.sourceTextHash,
         source_text_length: data.sourceText.length,
+        model: this.openRouter.getCurrentModelName(),
         generated_count: data.generatedCount,
         generation_duration: data.durationMs,
-        model: "gpt-4", // TODO: Make configurable
-        accepted_edited_count: 0,
         accepted_unedited_count: 0,
+        accepted_edited_count: 0,
       })
       .select("id")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      this.logger.error(error, {
+        operation: "save_generation_metadata",
+        data: JSON.stringify(data),
+      });
+      throw new Error("Failed to save generation metadata");
+    }
+
     return generation.id;
   }
 
   private async logGenerationError(
     error: unknown,
-    data: {
+    context: {
       sourceTextHash: string;
       sourceTextLength: number;
     }
-  ): Promise<void> {
-    await this.supabase.from("generation_error_logs").insert({
-      user_id: DEFAULT_USER_ID,
-      error_code: error instanceof Error ? error.name : "UNKNOWN",
-      error_message: error instanceof Error ? error.message : String(error),
-      model: "gpt-4", // TODO: Make configurable
-      source_text_hash: data.sourceTextHash,
-      source_text_length: data.sourceTextLength,
-    });
+  ) {
+    try {
+      await this.supabase.from("generation_error_logs").insert({
+        error_message: error instanceof Error ? error.message : "Unknown error",
+        error_stack: error instanceof Error ? error.stack : null,
+        source_text_hash: context.sourceTextHash,
+        source_text_length: context.sourceTextLength,
+      });
+    } catch (logError) {
+      // Just log to console if we can't save to database
+      console.error("Failed to log generation error:", logError);
+    }
   }
 
   /**

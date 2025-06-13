@@ -29,7 +29,7 @@ const generateFlashcardsSchema = z.object({
     .max(10000, "Text must not exceed 10000 characters"),
 });
 
-export const GET: APIRoute = async ({ url, locals }): Promise<Response> => {
+export const GET: APIRoute = async ({ url, locals }) => {
   try {
     // Parse and validate query parameters
     const searchParams = Object.fromEntries(url.searchParams.entries());
@@ -54,7 +54,6 @@ export const GET: APIRoute = async ({ url, locals }): Promise<Response> => {
       );
     }
 
-    // Initialize generation service and fetch the generations
     const generationService = new GenerationService(locals.supabase);
     const response = await generationService.getGenerations(validationResult.data);
 
@@ -102,8 +101,27 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    // Initialize generation service and process request
-    const generationService = new GenerationService(locals.supabase);
+    // Get OpenRouter API key from environment variables
+    const openRouterApiKey = import.meta.env.OPENROUTER_API_KEY;
+
+    if (!openRouterApiKey) {
+      return new Response(
+        JSON.stringify({
+          error: "Service configuration error",
+          message: "OpenRouter API key is not configured",
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Initialize generation service with OpenRouter config
+    const generationService = new GenerationService(locals.supabase, {
+      apiKey: openRouterApiKey,
+    });
+
     const result = await generationService.generateFlashcards(validationResult.data.source_text);
 
     return new Response(JSON.stringify(result), {
@@ -112,9 +130,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     });
   } catch (error) {
     console.error("Error processing generation request:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        error: "Internal server error",
+        message: error instanceof Error ? error.message : "Failed to generate flashcards",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 };
