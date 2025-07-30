@@ -81,7 +81,7 @@ When modifying the directory structure, always update this section.
 - Leverage View Transitions API for smooth page transitions (use ClientRouter)
 - Use content collections with type safety for blog posts, documentation, etc.
 - Leverage Server Endpoints for API routes
-- Use POST, GET  - uppercase format for endpoint handlers
+- Use POST, GET - uppercase format for endpoint handlers
 - Use `export const prerender = false` for API routes
 - Use zod for input validation in API routes
 - Extract logic into services in `src/lib/services`
@@ -111,3 +111,34 @@ When modifying the directory structure, always update this section.
 - Use Zod schemas to validate data exchanged with the backend.
 - Use supabase from context.locals in Astro routes instead of importing supabaseClient directly
 - Use SupabaseClient type from `src/db/supabase.client.ts`, not from `@supabase/supabase-js`
+
+## TESTING
+
+### Guidelines for UNIT
+
+#### VITEST
+
+- Leverage the `vi` object for test doubles - Use `vi.fn()` for function mocks, `vi.spyOn()` to monitor existing functions, and `vi.stubGlobal()` for global mocks. Prefer spies over mocks when you only need to verify interactions without changing behavior.
+- Master `vi.mock()` factory patterns - Place mock factory functions at the top level of your test file, return typed mock implementations, and use `mockImplementation()` or `mockReturnValue()` for dynamic control during tests. Remember the factory runs before imports are processed.
+- Create setup files for reusable configuration - Define global mocks, custom matchers, and environment setup in dedicated files referenced in your `vitest.config.ts`. This keeps your test files clean while ensuring consistent test environments.
+- Use inline snapshots for readable assertions - Replace complex equality checks with `expect(value).toMatchInlineSnapshot()` to capture expected output directly in your test file, making changes more visible in code reviews.
+- Monitor coverage with purpose and only when asked - Configure coverage thresholds in `vitest.config.ts` to ensure critical code paths are tested, but focus on meaningful tests rather than arbitrary coverage percentages.
+- Make watch mode part of your workflow - Run `vitest --watch` during development for instant feedback as you modify code, filtering tests with `-t` to focus on specific areas under development.
+- Explore UI mode for complex test suites - Use `vitest --ui` to visually navigate large test suites, inspect test results, and debug failures more efficiently during development.
+- Handle optional dependencies with smart mocking - Use conditional mocking to test code with optional dependencies by implementing `vi.mock()` with the factory pattern for modules that might not be available in all environments.
+
+### Guidelines for E2E
+
+#### PLAYWRIGHT
+
+- Initialize configuration only with Chromium/Desktop Chrome browser
+- Use browser contexts for isolating test environments
+- Implement the Page Object Model for maintainable tests
+- Use locators for resilient element selection
+- Leverage API testing for backend validation
+- Implement visual comparison with expect(page).toHaveScreenshot()
+- Use the codegen tool for test recording
+- Leverage trace viewer for debugging test failures
+- Implement test hooks for setup and teardown
+- Use expect assertions with specific matchers
+- Leverage parallel execution for faster test runs

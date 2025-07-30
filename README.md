@@ -69,17 +69,62 @@ $ npm run dev
 
 ## Available Scripts
 
-| Script     | Description                             |
-| ---------- | --------------------------------------- |
-| `dev`      | Start the Astro development server      |
-| `build`    | Build the project for production        |
-| `preview`  | Preview the production build            |
-| `astro`    | Run Astro CLI commands                  |
-| `lint`     | Run ESLint on the codebase              |
-| `lint:fix` | Run ESLint and automatically fix issues |
-| `format`   | Format code using Prettier              |
+| Script          | Description                             |
+| --------------- | --------------------------------------- |
+| `dev`           | Start the Astro development server      |
+| `build`         | Build the project for production        |
+| `preview`       | Preview the production build            |
+| `astro`         | Run Astro CLI commands                  |
+| `lint`          | Run ESLint on the codebase              |
+| `lint:fix`      | Run ESLint and automatically fix issues |
+| `format`        | Format code using Prettier              |
+| `test`          | Run unit tests with Vitest              |
+| `test:watch`    | Run unit tests in watch mode            |
+| `test:ui`       | Run unit tests with Vitest UI           |
+| `test:e2e`      | Run end-to-end tests with Playwright    |
+| `test:coverage` | Run tests with coverage report          |
 
 Run scripts using `npm run <script>`.
+
+---
+
+## Testing Strategy
+
+The project implements comprehensive testing strategy including:
+
+### Testing Frameworks
+
+- **Unit Tests**: Vitest + React Testing Library
+- **Integration Tests**: Vitest + Supertest + Testcontainers (PostgreSQL)
+- **End-to-End Tests**: Playwright
+- **API Testing**: Supertest for endpoint validation
+- **Performance Tests**: K6 + Lighthouse CI
+- **Security Tests**: OWASP ZAP
+- **Accessibility Tests**: axe-core + Pa11y (WCAG 2.1 AA compliance)
+
+### Testing Tools & Services
+
+- **Test Isolation**: testcontainers-node for PostgreSQL database isolation
+- **API Mocking**: MSW (Mock Service Worker) for external API mocking
+- **Reporting**: Vitest UI, Allure reports, Codecov for coverage analysis
+- **Monitoring**: Lighthouse CI for performance metrics
+
+### Coverage Requirements & Standards
+
+- Minimum 80% code coverage for business logic
+- All critical user scenarios covered by E2E tests
+- API endpoints tested with real database integration
+- Security and accessibility compliance verified
+- Core Web Vitals: LCP < 2.5s, FID < 100ms, CLS < 0.1
+- API response times < 2s (95th percentile)
+
+### Test Environments
+
+- **Local Development**: Node.js 18+, Supabase Local (Docker), OpenRouter sandbox
+- **CI/CD**: GitHub Actions with PostgreSQL containers and headless browsers
+- **Staging**: DigitalOcean with Supabase Cloud and OpenRouter test keys
+
+For detailed testing information, scenarios, and implementation guide, see [Test Plan](.ai/test-plan.md).
 
 ---
 

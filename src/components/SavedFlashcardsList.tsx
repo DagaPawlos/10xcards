@@ -168,7 +168,7 @@ export function SavedFlashcardsList({ initialFlashcards }: SavedFlashcardsListPr
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4">Edit Flashcard</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <Label htmlFor="edit-front">Question</Label>
@@ -180,7 +180,7 @@ export function SavedFlashcardsList({ initialFlashcards }: SavedFlashcardsListPr
                   rows={3}
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="edit-back">Answer</Label>
                 <Textarea
