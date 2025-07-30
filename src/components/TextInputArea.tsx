@@ -1,6 +1,4 @@
 import { useEffect, useState, type ChangeEvent } from "react";
-import { Textarea } from "./ui/textarea";
-import { Card, CardContent, CardFooter } from "./ui/card";
 
 interface TextInputAreaProps {
   value: string;
@@ -25,23 +23,23 @@ export function TextInputArea({ value, onChange, disabled }: TextInputAreaProps)
   }, [textLength]);
 
   const isValid = textLength >= 1000 && textLength <= 10000;
-  const validationColor = textLength === 0 ? "text-muted-foreground" : isValid ? "text-green-600" : "text-destructive";
+  const validationColorClass = textLength === 0 ? "text-gray-500" : isValid ? "text-green-600" : "text-red-600";
 
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <Textarea
+    <div className="border rounded-lg shadow-sm">
+      <div className="p-6">
+        <textarea
           placeholder="Paste your text here (1,000 - 10,000 characters)"
           value={value}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value)}
           disabled={disabled}
-          className="min-h-[200px] resize-y"
+          className="w-full min-h-[200px] p-3 border rounded-md resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         />
-      </CardContent>
-      <CardFooter className="flex justify-between items-center">
-        <span className={validationColor}>{validationMessage || `Characters: ${textLength}`}</span>
-        <span className={`text-sm ${validationColor}`}>{textLength}/10000</span>
-      </CardFooter>
-    </Card>
+      </div>
+      <div className="flex justify-between items-center p-6 pt-0">
+        <span className={validationColorClass}>{validationMessage || `Characters: ${textLength}`}</span>
+        <span className={`text-sm ${validationColorClass}`}>{textLength}/10000</span>
+      </div>
+    </div>
   );
 }

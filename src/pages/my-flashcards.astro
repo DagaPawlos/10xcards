@@ -1,0 +1,31 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import { SavedFlashcardsList } from "@/components/SavedFlashcardsList";
+import type { FlashcardsListResponseDto } from "../types";
+
+const { user } = Astro.locals;
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+// Fetch user's flashcards from the API
+const res = await fetch(`${Astro.url.origin}/api/flashcards?limit=100&order=desc`, {
+  headers: { cookie: Astro.request.headers.get("cookie") ?? "" },
+});
+
+let flashcards: FlashcardsListResponseDto["data"] = [];
+if (res.ok) {
+  const data: FlashcardsListResponseDto = await res.json();
+  flashcards = data.data;
+}
+---
+
+<Layout title="My Saved Flashcards">
+  <main class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-8">
+      <h1 class="text-3xl font-bold">My Saved Flashcards</h1>
+      <a href="/generate" class="text-blue-600 hover:underline font-medium"> Generate New Flashcards </a>
+    </div>
+    <SavedFlashcardsList initialFlashcards={flashcards} client:load />
+  </main>
+</Layout>

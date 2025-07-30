@@ -1,9 +1,28 @@
 import type { MiddlewareHandler } from "astro";
 import { defineMiddleware } from "astro:middleware";
+import { createSupabaseServerInstance } from "../db/supabase.server";
 
-import { supabaseClient } from "../db/supabase.client";
+export const onRequest: MiddlewareHandler = defineMiddleware(async (context, next) => {
+  const supabase = createSupabaseServerInstance({
+    cookies: context.cookies,
+    headers: context.request.headers,
+  });
 
-export const onRequest: MiddlewareHandler = defineMiddleware((context, next) => {
-  context.locals.supabase = supabaseClient;
+  // Always try to get the user session
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Set user in locals if authenticated
+  if (user && user.email) {
+    context.locals.user = {
+      id: user.id,
+      email: user.email,
+    };
+  }
+
+  // Set supabase instance in locals for API routes
+  context.locals.supabase = supabase;
+
   return next();
 });

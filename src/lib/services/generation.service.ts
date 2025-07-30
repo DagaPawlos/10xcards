@@ -11,7 +11,6 @@ import type {
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { OpenRouterService } from "./openrouter.service";
 import { Logger } from "../logger";
-import { DEFAULT_USER_ID } from "../../db/supabase.client";
 
 interface ListGenerationsParams {
   page: number;
@@ -26,6 +25,7 @@ export class GenerationService {
 
   constructor(
     private readonly supabase: SupabaseClient,
+    private readonly userId: string | null = null,
     openRouterConfig?: { apiKey: string }
   ) {
     this.logger = new Logger("GenerationService");
@@ -198,11 +198,11 @@ export class GenerationService {
     generatedCount: number;
     durationMs: number;
   }) {
-    // Using DEFAULT_USER_ID from supabase.client.ts
+    // Using userId from constructor (can be null for anonymous users)
     const { data: generation, error } = await this.supabase
       .from("generations")
       .insert({
-        user_id: DEFAULT_USER_ID,
+        user_id: this.userId, // This can be null for anonymous generations
         source_text_hash: data.sourceTextHash,
         source_text_length: data.sourceText.length,
         model: this.openRouter.getCurrentModelName(),
@@ -331,35 +331,33 @@ export class GenerationService {
   }
 
   async getGenerations(params: ListGenerationsParams): Promise<GenerationsListResponseDto> {
+    // Require authentication for listing generations
+    if (!this.userId) {
+      throw new Error("Authentication required to list generations");
+    }
+
     // Calculate offset for pagination
     const offset = params.limit * (params.page - 1);
 
-    // Get total count
+    // Get total count for the user
     const { count, error: countError } = await this.supabase
       .from("generations")
-      .select("*", { count: "exact", head: true });
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", this.userId);
 
     if (countError) {
-      console.error("Error counting generations:", {
-        error: countError,
-        operation: "count_generations",
-      });
       throw countError;
     }
 
-    // Get paginated data
+    // Get paginated data for the user
     const { data, error: dataError } = await this.supabase
       .from("generations")
       .select("*")
+      .eq("user_id", this.userId)
       .order(params.sort, { ascending: params.order === "asc" })
       .range(offset, offset + params.limit - 1);
 
     if (dataError) {
-      console.error("Error fetching generations:", {
-        error: dataError,
-        params,
-        operation: "get_generations",
-      });
       throw dataError;
     }
 

@@ -6,10 +6,12 @@ import type {
   Flashcard,
 } from "../../types";
 import type { SupabaseClient } from "../../db/supabase.client";
-import { DEFAULT_USER_ID } from "../../db/supabase.client";
 
 export class FlashcardService {
-  constructor(private readonly supabase: SupabaseClient) {}
+  constructor(
+    private readonly supabase: SupabaseClient,
+    private readonly userId: string
+  ) {}
 
   async createFlashcards(flashcards: FlashcardCreateDto[]): Promise<FlashcardDto[]> {
     // Start a transaction to ensure all operations are atomic
@@ -18,7 +20,7 @@ export class FlashcardService {
       .insert(
         flashcards.map((flashcard) => ({
           ...flashcard,
-          user_id: DEFAULT_USER_ID, // Add user_id to each flashcard
+          user_id: this.userId, // Use the actual user ID from constructor
         }))
       )
       .select();
@@ -42,7 +44,7 @@ export class FlashcardService {
       .from("generations")
       .select("id")
       .in("id", generationIds)
-      .eq("user_id", DEFAULT_USER_ID); // Only validate generations belonging to the user
+      .eq("user_id", this.userId); // Use the actual user ID from constructor
 
     if (error) {
       throw new Error("Failed to validate generation IDs");
@@ -64,65 +66,50 @@ export class FlashcardService {
     source?: string;
     generation_id?: number;
   }): Promise<FlashcardsListResponseDto> {
-    try {
-      const { page, limit, sort = "created_at", order = "desc", source, generation_id } = params;
-      const offset = (page - 1) * limit;
+    const { page, limit, sort = "created_at", order = "desc", source, generation_id } = params;
+    const offset = (page - 1) * limit;
 
-      // Build query
-      let query = this.supabase.from("flashcards").select("*", { count: "exact" });
+    // Build query - always filter by user_id
+    let query = this.supabase.from("flashcards").select("*", { count: "exact" }).eq("user_id", this.userId);
 
-      // Apply filters if provided
-      if (source) {
-        query = query.eq("source", source);
-      }
-      if (generation_id) {
-        query = query.eq("generation_id", generation_id);
-      }
+    // Apply filters if provided
+    if (source) {
+      query = query.eq("source", source);
+    }
+    if (generation_id) {
+      query = query.eq("generation_id", generation_id);
+    }
 
-      // Apply sorting and pagination
-      const {
-        data: flashcards,
-        error,
-        count,
-      } = await query.order(sort, { ascending: order === "asc" }).range(offset, offset + limit - 1);
+    // Apply sorting and pagination
+    const {
+      data: flashcards,
+      error,
+      count,
+    } = await query.order(sort, { ascending: order === "asc" }).range(offset, offset + limit - 1);
 
-      if (error) {
-        console.error("Database error while fetching flashcards:", {
-          error,
-          operation: "list_flashcards",
-          params: JSON.stringify(params),
-        });
-        throw new Error("Failed to fetch flashcards");
-      }
+    if (error) {
+      throw new Error("Failed to fetch flashcards");
+    }
 
-      if (!flashcards || !count) {
-        return {
-          data: [],
-          pagination: {
-            page,
-            limit,
-            total: 0,
-          },
-        };
-      }
-
+    if (!flashcards || !count) {
       return {
-        data: flashcards,
+        data: [],
         pagination: {
           page,
           limit,
-          total: count,
+          total: 0,
         },
       };
-    } catch (error) {
-      // Log error details for debugging
-      console.error("Error in getFlashcards:", {
-        error,
-        operation: "list_flashcards",
-        params: JSON.stringify(params),
-      });
-      throw error;
     }
+
+    return {
+      data: flashcards,
+      pagination: {
+        page,
+        limit,
+        total: count,
+      },
+    };
   }
 
   async updateFlashcard(id: number, data: FlashcardUpdateDto): Promise<FlashcardDto> {

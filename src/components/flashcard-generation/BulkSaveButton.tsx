@@ -61,20 +61,18 @@ export function BulkSaveButton({ flashcards, generationId, onSaveSuccess, onSave
     }
   };
 
-  if (!hasAcceptedFlashcards) {
-    return null;
-  }
-
   return (
     <div className="flex gap-2 justify-end">
       <Button variant="outline" onClick={handleSaveAll} disabled={isSaving || flashcards.length === 0}>
         <Save className="h-4 w-4 mr-2" />
         Save All ({flashcards.length})
       </Button>
-      <Button onClick={handleSaveAccepted} disabled={isSaving || !hasAcceptedFlashcards}>
-        <Save className="h-4 w-4 mr-2" />
-        Save Accepted ({acceptedFlashcards.length})
-      </Button>
+      {hasAcceptedFlashcards && (
+        <Button onClick={handleSaveAccepted} disabled={isSaving}>
+          <Save className="h-4 w-4 mr-2" />
+          Save Accepted ({acceptedFlashcards.length})
+        </Button>
+      )}
     </div>
   );
 }

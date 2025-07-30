@@ -13,6 +13,7 @@ const flashcardCreateSchema = z.object({
     errorMap: () => ({ message: "Source must be one of: ai-full, ai-edited, manual" }),
   }),
   generation_id: z.number().nullable(),
+  // user_id is intentionally omitted from the schema
 });
 
 const flashcardsCreateSchema = z.object({
@@ -35,6 +36,15 @@ const flashcardsCreateSchema = z.object({
 
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
+    // Check authentication first
+    const userId = locals.user?.id;
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "Not authenticated" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     // Parse and validate request body
     const body = (await request.json()) as FlashcardsCreateCommand;
     const validationResult = flashcardsCreateSchema.safeParse(body);
@@ -52,7 +62,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    const flashcardService = new FlashcardService(locals.supabase);
+    const flashcardService = new FlashcardService(locals.supabase, userId);
 
     try {
       // Validate generation IDs before creating flashcards
@@ -81,8 +91,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       status: 201,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error) {
-    console.error("Error processing flashcards creation request:", error);
+  } catch {
     return new Response(
       JSON.stringify({
         error: "Internal server error",
@@ -108,6 +117,15 @@ const listFlashcardsSchema = z.object({
 
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
+    // Check authentication first
+    const userId = locals.user?.id;
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "Not authenticated" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     // Parse and validate query parameters
     const searchParams = Object.fromEntries(url.searchParams.entries());
     const validationResult = listFlashcardsSchema.safeParse(searchParams);
@@ -125,15 +143,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
       );
     }
 
-    const flashcardService = new FlashcardService(locals.supabase);
+    const flashcardService = new FlashcardService(locals.supabase, userId);
     const response = await flashcardService.getFlashcards(validationResult.data);
 
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error) {
-    console.error("Error processing flashcards request:", error);
+  } catch {
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { TextInputArea } from "./TextInputArea";
 import { Button } from "./ui/button";
@@ -8,7 +6,9 @@ import { FlashcardList } from "./flashcard-generation/FlashcardList";
 import { ErrorNotification } from "./flashcard-generation/ErrorNotification";
 import { EditFlashcardDialog } from "./flashcard-generation/EditFlashcardDialog";
 import { BulkSaveButton } from "./flashcard-generation/BulkSaveButton";
+import { UserMenu } from "./UserMenu";
 import type { GenerateFlashcardsCommand, FlashcardProposalDto } from "../types";
+import { useCurrentUser } from "./hooks/useCurrentUser";
 
 export interface FlashcardProposalViewModel extends FlashcardProposalDto {
   id: number;
@@ -23,6 +23,7 @@ export function FlashcardGenerationView() {
   const [flashcardProposals, setFlashcardProposals] = useState<FlashcardProposalViewModel[]>([]);
   const [editingFlashcard, setEditingFlashcard] = useState<FlashcardProposalViewModel | null>(null);
   const [generationId, setGenerationId] = useState<number | null>(null);
+  const { user, loading: userLoading } = useCurrentUser();
 
   const handleTextChange = (value: string) => {
     setTextValue(value);
@@ -102,6 +103,19 @@ export function FlashcardGenerationView() {
 
   return (
     <div className="space-y-6">
+      {/* Navigation for users */}
+      {!userLoading && (
+        <div className="flex justify-end">
+          {user && user.email ? (
+            <UserMenu userEmail={user.email} />
+          ) : (
+            <a href="/login" className="text-blue-600 hover:underline font-medium">
+              Login
+            </a>
+          )}
+        </div>
+      )}
+
       <TextInputArea value={textValue} onChange={handleTextChange} disabled={isLoading} />
 
       {errorMessage && <ErrorNotification message={errorMessage} />}
@@ -124,13 +138,27 @@ export function FlashcardGenerationView() {
             onReject={handleReject}
             onEdit={handleEdit}
           />
-          {generationId && (
+          {generationId && user && (
             <BulkSaveButton
               flashcards={flashcardProposals}
               generationId={generationId}
               onSaveSuccess={handleSaveSuccess}
               onSaveError={setErrorMessage}
             />
+          )}
+          {generationId && !user && (
+            <div className="text-center mt-4 space-y-2">
+              <div className="text-sm text-gray-500">
+                <span className="text-red-500 font-medium">Log in to save your flashcards!</span>
+              </div>
+              <Button
+                onClick={() => (window.location.href = "/login")}
+                variant="outline"
+                className="w-full max-w-xs mx-auto"
+              >
+                Go to Login
+              </Button>
+            </div>
           )}
         </>
       )}
