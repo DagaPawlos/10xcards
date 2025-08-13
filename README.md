@@ -10,6 +10,11 @@
     - [Prerequisites](#prerequisites)
     - [Installation](#installation)
   - [Available Scripts](#available-scripts)
+  - [Testing Strategy](#testing-strategy)
+    - [Testing Frameworks](#testing-frameworks)
+    - [Testing Tools \& Services](#testing-tools--services)
+    - [Coverage Requirements \& Standards](#coverage-requirements--standards)
+    - [Test Environments](#test-environments)
   - [Project Scope](#project-scope)
     - [MVP Features](#mvp-features)
     - [Out of Scope (MVP)](#out-of-scope-mvp)
@@ -20,7 +25,7 @@
 
 ## Project Description
 
-**10x-cards** is a web application designed to help users quickly create and manage sets of educational flashcards. The app leverages Large Language Models (LLMs) via API to generate flashcard suggestions based on user-provided text, significantly reducing the time and effort required for high-quality flashcard creation. The platform supports both automatic and manual flashcard management, integrates a spaced repetition algorithm for effective learning, and ensures user data privacy and security.
+**10x-cards** is a web application designed to help users create and manage sets of educational flashcards. The app leverages Large Language Models (LLMs) via API to generate flashcard suggestions based on user-provided text, significantly reducing the time and effort required for high-quality flashcard creation. The platform supports both automatic and manual flashcard management, integrates a spaced repetition algorithm for effective learning, and ensures user data privacy and security.
 
 ---
 
