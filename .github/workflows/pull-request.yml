@@ -7,7 +7,7 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: ".nvmrc"
           cache: "npm"
 
       - name: Install dependencies
@@ -27,7 +27,7 @@ jobs:
   unit-test:
     runs-on: ubuntu-latest
     needs: lint
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -35,7 +35,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: ".nvmrc"
           cache: "npm"
 
       - name: Install dependencies
@@ -54,12 +54,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint
     environment: integration
-    
+
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -67,7 +67,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: ".nvmrc"
           cache: "npm"
 
       - name: Install dependencies
@@ -101,7 +101,7 @@ jobs:
     if: always()
     permissions:
       pull-requests: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -123,12 +123,12 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            
+
             // Get job statuses
             const lintStatus = '${{ needs.lint.result }}';
             const unitTestStatus = '${{ needs.unit-test.result }}';
             const e2eTestStatus = '${{ needs.e2e-test.result }}';
-            
+
             // Status emojis
             const getStatusEmoji = (status) => {
               switch(status) {
@@ -139,11 +139,11 @@ jobs:
                 default: return '❓';
               }
             };
-            
+
             // Overall status
             const allPassed = lintStatus === 'success' && unitTestStatus === 'success' && e2eTestStatus === 'success';
             const overallStatus = allPassed ? '✅ All checks passed!' : '❌ Some checks failed';
-            
+
             // Create coverage summary
             let coverageSummary = '';
             try {
@@ -160,9 +160,9 @@ jobs:
             } catch (error) {
               coverageSummary = '\n**Unit Test Coverage:** Not available';
             }
-            
+
             const comment = `## ${overallStatus}
-            
+
             ### Test Results
             | Job | Status | Result |
             |-----|---------|--------|
@@ -170,22 +170,22 @@ jobs:
             | Unit Tests | ${getStatusEmoji(unitTestStatus)} | ${unitTestStatus} |
             | E2E Tests | ${getStatusEmoji(e2eTestStatus)} | ${e2eTestStatus} |
             ${coverageSummary}
-            
+
             ---
             *Workflow run: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*`;
-            
+
             // Find existing comment
             const comments = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
-            
+
             const existingComment = comments.data.find(comment => 
               comment.body.includes('## ✅ All checks passed!') || 
               comment.body.includes('## ❌ Some checks failed')
             );
-            
+
             if (existingComment) {
               // Update existing comment
               await github.rest.issues.updateComment({
