@@ -153,7 +153,6 @@ For detailed testing information, scenarios, and implementation guide, see [Test
 - Public API
 - Flashcard sharing between users
 - Advanced notifications
-- Advanced search
 
 ---
 
