@@ -35,6 +35,15 @@ export const handlers = [
   http.post("/api/flashcards", () => {
     return HttpResponse.json({ id: "1", question: "Test question", answer: "Test answer" });
   }),
+
+  // Mock individual flashcard endpoints for CRUD operations
+  http.put("/api/flashcards/:id", () => {
+    return HttpResponse.json({ id: "1", front: "Updated question", back: "Test answer" });
+  }),
+
+  http.delete("/api/flashcards/:id", () => {
+    return HttpResponse.json({ message: "Flashcard deleted successfully" });
+  }),
 ];
 
 const server = setupServer(...handlers);

@@ -4,6 +4,7 @@ import { createSupabaseServerInstance } from "../../../db/supabase.server";
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
     const { email, password } = await request.json();
+
     if (!email || !password) {
       return new Response(JSON.stringify({ error: "Email and password are required." }), { status: 400 });
     }

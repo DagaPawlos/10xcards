@@ -1,10 +1,19 @@
 import { defineConfig, devices } from "@playwright/test";
+import dotenv from "dotenv";
+import path from "node:path";
+
+// Load environment variables from .env.test for E2E tests
+dotenv.config({ path: path.resolve(process.cwd(), ".env.test") });
 
 /**
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
   testDir: "./tests/e2e",
+  /* Global setup file */
+  globalSetup: "./tests/global-setup.ts",
+  /* Global teardown file */
+  globalTeardown: "./tests/global-teardown.ts",
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -40,7 +49,7 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: "npm run dev",
+    command: "npm run dev:e2e",
     url: "http://127.0.0.1:4321",
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

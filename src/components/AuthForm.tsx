@@ -50,7 +50,7 @@ export function AuthForm({
         body: JSON.stringify({ email, password }),
       });
       if (res.ok) {
-        window.location.href = "/generate"; // SSR reload
+        window.location.href = "/"; // SSR reload
       } else {
         const data = await res.json();
         setError(data.error || "Login failed");
