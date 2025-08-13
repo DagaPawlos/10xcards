@@ -50,7 +50,7 @@ export function AuthForm({
         body: JSON.stringify({ email, password }),
       });
       if (res.ok) {
-        window.location.href = "/"; // SSR reload
+        window.location.href = "/generate"; // Redirect to main app after login
       } else {
         const data = await res.json();
         setError(data.error || "Login failed");
